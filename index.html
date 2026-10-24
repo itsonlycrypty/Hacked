@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>don't look away</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#000;overflow:hidden;
+    font-family:'Courier New',monospace;color:#c9c4bb;cursor:none}
+
+  /* ---------- film grain ---------- */
+  .noise{
+    position:fixed;inset:-60%;pointer-events:none;z-index:5;opacity:.13;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation:grain .35s steps(2) infinite;
+  }
+  @keyframes grain{
+    0%{transform:translate(0,0)}
+    25%{transform:translate(-3%,2%)}
+    50%{transform:translate(2%,-3%)}
+    75%{transform:translate(-2%,-2%)}
+    100%{transform:translate(3%,3%)}
+  }
+
+  /* ---------- vignette ---------- */
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:6;
+    background:radial-gradient(ellipse at center,
+      transparent 25%, rgba(0,0,0,.75) 70%, #000 100%)}
+
+  /* ---------- custom cursor ---------- */
+  #dot{position:fixed;width:10px;height:10px;border-radius:50%;z-index:200;
+    background:#ff2222;box-shadow:0 0 14px 4px rgba(255,0,0,.7);
+    pointer-events:none;transform:translate(-50%,-50%);mix-blend-mode:screen;
+    transition:width .1s,height .1s}
+
+  /* ---------- gate ---------- */
+  #gate{position:fixed;inset:0;z-index:150;display:grid;place-content:center;
+    text-align:center;padding:2rem;background:#000;gap:1.4rem}
+  #gate h1{font-size:clamp(1.1rem,3vw,1.7rem);letter-spacing:.4em;
+    color:#b43a3a;text-shadow:0 0 18px rgba(180,0,0,.6)}
+  #gate p{max-width:34rem;line-height:1.7;font-size:.85rem;color:#7d7770;
+    letter-spacing:.08em}
+  #gate button{margin-top:1rem;padding:1rem 2.2rem;background:transparent;
+    border:1px solid #4a4440;color:#c9c4bb;font-family:inherit;font-size:.8rem;
+    letter-spacing:.35em;cursor:none;transition:.35s}
+  #gate button:hover{border-color:#b43a3a;color:#fff;
+    box-shadow:0 0 26px rgba(180,0,0,.5) inset}
+
+  /* ---------- stage ---------- */
+  #stage{position:fixed;inset:0;display:grid;place-items:center;z-index:10}
+
+  #text{position:absolute;text-align:center;padding:2rem;
+    font-size:clamp(1rem,3.2vw,2rem);letter-spacing:.35em;
+    color:#d8d2c8;opacity:0;text-transform:lowercase;
+    text-shadow:0 0 24px rgba(0,0,0,1),0 0 8px rgba(255,255,255,.12);
+    transition:opacity .5s ease;max-width:90vw}
+  #text.on{opacity:1}
+
+  /* ---------- distant figure ---------- */
+  #figure{position:absolute;width:120px;height:230px;opacity:0;
+    transition:opacity 2.2s ease;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 30%,
+      rgba(190,190,180,.20) 0%, rgba(90,90,85,.10) 45%, transparent 70%);
+    filter:blur(3px)}
+  #figure .eye{position:absolute;top:52px;width:7px;height:7px;border-radius:50%;
+    background:#ffdddd;box-shadow:0 0 10px 3px rgba(255,60,60,.8)}
+  #figure .eye.l{left:36px} #figure .eye.r{right:36px}
+  #figure.on{opacity:1}
+
+  /* ---------- scare ---------- */
+  #scare{position:fixed;inset:0;z-index:120;display:grid;place-items:center;
+    opacity:0;pointer-events:none;background:#000}
+  #scare svg{width:75vmin;height:75vmin;filter:drop-shadow(0 0 40px #000)}
+  #scare.show{opacity:1;animation:scareIn 1.1s cubic-bezier(.2,.9,.2,1) forwards}
+  @keyframes scareIn{
+    0%  {transform:scale(.04);filter:brightness(3) blur(6px)}
+    18% {transform:scale(1.05);filter:brightness(2.2) blur(0)}
+    24% {transform:scale(.96)}
+    100%{transform:scale(2.4);filter:brightness(.55)}
+  }
+
+  #flash{position:fixed;inset:0;z-index:130;background:#fff;opacity:0;
+    pointer-events:none;mix-blend-mode:screen}
+  #flash.go{animation:flash .55s ease-out}
+  @keyframes flash{0%{opacity:1}30%{opacity:.15}100%{opacity:0}}
+
+  /* ---------- glitch ---------- */
+  body.glitch #stage{animation:shake .07s infinite;
+    filter:hue-rotate(90deg) saturate(2) contrast(1.4)}
+  @keyframes shake{
+    0%{transform:translate(0,0)}25%{transform:translate(-6px,3px)}
+    50%{transform:translate(5px,-4px)}75%{transform:translate(-3px,-2px)}
+    100%{transform:translate(4px,4px)}
+  }
+
+  /* ---------- epilogue ---------- */
+  #epilogue{position:fixed;inset:0;z-index:140;display:grid;place-items:center;
+    background:#000;opacity:0;pointer-events:none;transition:opacity 2s;
+    letter-spacing:.5em;font-size:clamp(.7rem,2vw,1rem);color:#5a5450}
+  #epilogue.on{opacity:1}
+  #epilogue b{color:#b43a3a;font-weight:normal}
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div class="vignette"></div>
+<div id="dot"></div>
+
+<!-- ============ CONSENT GATE ============ -->
+<div id="gate">
+  <h1>⚠ WARNING ⚠</h1>
+  <p>This page contains sudden loud sounds, flashing lights, and jump scares.<br>
+     Not recommended for people with photosensitive epilepsy or heart conditions.</p>
+  <button id="enter">I UNDERSTAND — LET ME IN</button>
+</div>
+
+<!-- ============ STAGE ============ -->
+<div id="stage">
+  <div id="text"></div>
+  <div id="figure"><span class="eye l"></span><span class="eye r"></span></div>
+</div>
+
+<!-- ============ THE FACE ============ -->
+<div id="scare">
+  <svg viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="skin" cx="45%" cy="35%">
+        <stop offset="0%"  stop-color="#cfc7ba"/>
+        <stop offset="55%" stop-color="#8c8478"/>
+        <stop offset="100%" stop-color="#211f1c"/>
+      </radialGradient>
+      <radialGradient id="sock" cx="50%" cy="40%">
+        <stop offset="0%" stop-color="#000"/>
+        <stop offset="100%" stop-color="#0a0705"/>
+      </radialGradient>
+    </defs>
+    <ellipse cx="200" cy="255" rx="152" ry="215" fill="url(#skin)"/>
+    <ellipse cx="138" cy="205" rx="46" ry="60" fill="url(#sock)"/>
+    <ellipse cx="262" cy="205" rx="46" ry="60" fill="url(#sock)"/>
+    <circle cx="143" cy="212" r="5.5" fill="#fff" opacity=".9"/>
+    <circle cx="267" cy="212" r="5.5" fill="#fff" opacity=".9"/>
+    <path d="M120 350 Q200 480 280 350 Q200 415 120 350 Z" fill="#070202"/>
+    <path d="M132 352 L152 372 L168 352 L186 376 L204 352 L222 376
+              L240 352 L258 372 L272 352"
+          stroke="#3a3230" stroke-width="3" fill="none" opacity=".7"/>
+  </svg>
+</div>
+
+<div id="flash"></div>
+<div id="epilogue">it's not over. <b>refresh</b></div>
+
+<script>
+/* =========================================================
+   AUDIO — everything is synthesised, no files needed
+   ========================================================= */
+let ac = null;
+const A = {
+  init(){ ac = new (window.AudioContext || window.webkitAudioContext)(); },
+  curve(k){ const n=256,c=new Float32Array(n);
+    for(let i=0;i<n;i++){const x=i*2/n-1; c[i]=(1+k)*x/(1+k*Math.abs(x));}
+    return c; },
+
+  drone(){
+    const g = ac.createGain(); g.gain.value = 0.0001; g.connect(ac.destination);
+    const lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=200;
+    lp.connect(g);
+    const o1 = ac.createOscillator(); o1.type='sawtooth'; o1.frequency.value=41.2;
+    const o2 = ac.createOscillator(); o2.type='sine';     o2.frequency.value=55.7;
+    o1.connect(lp); o2.connect(lp); o1.start(); o2.start();
+    g.gain.exponentialRampToValueAtTime(0.09, ac.currentTime+4);
+  },
+
+  thump(t, vol){
+    const o = ac.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(72, t);
+    o.frequency.exponentialRampToValueAtTime(26, t+0.28);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.32);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t+0.36);
+  },
+
+  heartbeat(){ // two beats, then pause
+    const t = ac.currentTime;
+    A.thump(t, 0.22); A.thump(t+0.21, 0.14);
+    setTimeout(A.heartbeat, 950 + Math.random()*300);
+  },
+
+  whisper(){ // breathy filtered noise
+    const dur = 1.4, t = ac.currentTime;
+    const buf = ac.createBuffer(1, ac.sampleRate*dur, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const bp = ac.createBiquadFilter(); bp.type='bandpass';
+    bp.frequency.setValueAtTime(1400, t);
+    bp.frequency.linearRampToValueAtTime(700, t+dur);
+    bp.Q.value = 6;
+    const g = ac.createGain(); g.gain.value = 0.05;
+    src.connect(bp); bp.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t+dur);
+  },
+
+  scream(){
+    const dur = 1.8, t = ac.currentTime;
+
+    // white noise blast
+    const buf = ac.createBuffer(1, ac.sampleRate*dur, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const bp = ac.createBiquadFilter(); bp.type='bandpass'; bp.Q.value = 1.4;
+    bp.frequency.setValueAtTime(3200, t);
+    bp.frequency.exponentialRampToValueAtTime(420, t+dur);
+    const ws = ac.createWaveShaper(); ws.curve = A.curve(60);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.85, t+0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    src.connect(bp); bp.connect(ws); ws.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t+dur);
+
+    // falling saw "voice"
+    const o = ac.createOscillator(); o.type='sawtooth';
+    o.frequency.setValueAtTime(1500, t);
+    o.frequency.exponentialRampToValueAtTime(90, t+1.2);
+    const og = ac.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.3, t+0.04);
+    og.gain.exponentialRampToValueAtTime(0.0001, t+1.4);
+    o.connect(og); og.connect(ac.destination);
+    o.start(t); o.stop(t+1.45);
+
+    // sub boom
+    const b = ac.createOscillator(); b.type='sine';
+    b.frequency.setValueAtTime(120, t);
+    b.frequency.exponentialRampToValueAtTime(24, t+1.0);
+    const bg = ac.createGain();
+    bg.gain.setValueAtTime(0.0001, t);
+    bg.gain.exponentialRampToValueAtTime(0.7, t+0.02);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t+1.2);
+    b.connect(bg); bg.connect(ac.destination);
+    b.start(t); b.stop(t+1.25);
+  }
+};
+
+/* =========================================================
+   VISUALS
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const textEl = $('#text'), figureEl = $('#figure'),
+      scareEl = $('#scare'), flashEl = $('#flash'),
+      epilogueEl = $('#epilogue');
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* cursor */
+addEventListener('mousemove', e => {
+  $('#dot').style.left = e.clientX + 'px';
+  $('#dot').style.top  = e.clientY + 'px';
+});
+
+/* glitch pulse */
+function glitch(ms = 380){
+  document.body.classList.add('glitch');
+  setTimeout(() => document.body.classList.remove('glitch'), ms);
+}
+
+/* show a line of text, then fade it */
+async function say(line, hold = 1700){
+  textEl.textContent = line;
+  textEl.classList.add('on');
+  await wait(hold);
+  textEl.classList.remove('on');
+  await wait(450);
+}
+
+/* the distant watcher drifts closer each time it appears */
+let figureScale = 1;
+function showFigure(){
+  figureScale += 0.28;
+  const x = 8 + Math.random()*84;   // vw
+  const y = 55 + Math.random()*30;  // vh
+  figureEl.style.left = x + 'vw';
+  figureEl.style.top  = y + 'vh';
+  figureEl.style.transform = `translate(-50%,-50%) scale(${figureScale})`;
+  figureEl.classList.add('on');
+  A.whisper();
+  setTimeout(() => figureEl.classList.remove('on'), 2600);
+}
+
+/* ambient dread: random events while the user waits */
+function startAmbient(){
+  (function loop(){
+    const r = Math.random();
+    if (r < 0.30) glitch(120 + Math.random()*300);
+    else if (r < 0.62) showFigure();
+    else if (r < 0.80) A.whisper();
+    setTimeout(loop, 2500 + Math.random()*4500);
+  })();
+}
+
+/* ---------- THE JUMP SCARE ---------- */
+async function jumpScare(){
+  figureEl.classList.remove('on');
+  textEl.classList.remove('on');
+
+  scareEl.classList.add('show');
+  flashEl.classList.add('go');
+  document.body.classList.add('glitch');
+  A.scream();
+
+  await wait(1100);
+
+  // sudden silence + black
+  scareEl.classList.remove('show');
+  document.body.classList.remove('glitch');
+  flashEl.classList.remove('go');
+  scareEl.style.opacity = 0;
+
+  await wait(900);
+  epilogueEl.classList.add('on');
+
+  // the loop never really ends
+  setTimeout(() => {
+    epilogueEl.classList.remove('on');
+    idleLoop();
+  }, 5200);
+}
+
+/* after the scare, keep the page "alive" */
+async function idleLoop(){
+  const lines = ["still there?", "look behind you", "i can wait"];
+  for (let i = 0; i < 60; i++){
+    if (Math.random() < 0.5) glitch(150);
+    else showFigure();
+    if (i % 4 === 0) await say(lines[i/4 % lines.length], 1500);
+    await wait(3000 + Math.random()*4000);
+  }
+}
+
+/* =========================================================
+   SCRIPTED OPENING
+   ========================================================= */
+async function begin(){
+  $('#gate').style.display = 'none';
+  A.init();
+  A.drone();
+  A.heartbeat();
+  startAmbient();
+
+  await wait(1200);
+
+  await say("you shouldn't have come here", 1900);
+  await wait(600);
+
+  glitch(500);
+  await say("it already knows you're here", 1900);
+  await wait(500);
+
+  showFigure();
+  await wait(2400);
+
+  await say("don't turn around", 2100);
+  await wait(700);
+
+  await say("...", 1200);
+  await wait(400);
+
+  jumpScare();   // <- around the 12–14 second mark
+}
+
+$('#enter').addEventListener('click', begin);
+</script>
+</body>
+  </html>
